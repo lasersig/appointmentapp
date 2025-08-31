@@ -8,6 +8,7 @@ import '../appointments/missed_appointments_screen.dart';
 import '../appointments/completed_appointments_screen.dart';
 import '../search/search_doctors_screen.dart';
 import '../account/account_screen.dart';
+import '../admin/doctor_admin_screen.dart';
 import '../../models/doctor.dart';
 import '../../models/appointment.dart';
 import '../../models/user_session.dart';
@@ -19,17 +20,21 @@ class HomeTabs extends StatefulWidget {
   _HomeTabsState createState() => _HomeTabsState();
 }
 
-class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin {
+class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const UpcomingAppointmentsScreen(),
-    const MissedAppointmentsScreen(),
-    const CompletedAppointmentsScreen(),
-    const SearchDoctorsScreen(),
-    const AccountScreen(),
-  ];
+  List<Widget> _screens(BuildContext context, String userId) {
+    final doctorsBox = Hive.box<Doctor>('doctors');
+    final isDoctor = doctorsBox.values.any((doctor) => doctor.id == userId);
+    return [
+      isDoctor ? const DoctorAdminScreen() : const UpcomingAppointmentsScreen(),
+      const MissedAppointmentsScreen(),
+      const CompletedAppointmentsScreen(),
+      const SearchDoctorsScreen(),
+      const AccountScreen(),
+    ];
+  }
 
   @override
   void initState() {
@@ -42,7 +47,17 @@ class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin
         });
       }
     });
+    WidgetsBinding.instance.addObserver(this);
     _scheduleAppointmentReminders();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('App resumed, rescheduling reminders');
+      _scheduleAppointmentReminders();
+    }
   }
 
   Future<void> _scheduleAppointmentReminders() async {
@@ -58,6 +73,11 @@ class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin
     debugPrint('Scheduling reminders for user: $userId, now: $now, maxDate: $maxDate');
     debugPrint('Appointments in box: ${appointmentsBox.values.length}');
 
+    // Clear existing reminders to prevent duplicates
+    await remindersBox.clear();
+    await notificationsPlugin.cancelAll();
+    debugPrint('Cleared reminders box and cancelled all notifications');
+
     for (var appointment in appointmentsBox.values) {
       debugPrint('Checking appointment: ${appointment.id}, status: ${appointment.status}, userId: ${appointment.userId}, dateTime: ${appointment.dateTime}');
       if (appointment.status == 'approved' &&
@@ -68,32 +88,28 @@ class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin
         final reminderTime = appointment.dateTime.subtract(const Duration(hours: 1));
         debugPrint('Reminder eligible for ${appointment.id}, reminderTime: $reminderTime, reminderId: $reminderId');
 
-        if (!remindersBox.containsKey(reminderId)) {
-          final doctor = doctorsBox.get(appointment.doctorId);
-          try {
-            await notificationsPlugin.zonedSchedule(
-              reminderId,
-              'Appointment Reminder',
-              'Your appointment with ${doctor?.name ?? 'Unknown'} is at ${DateFormat('MMM d, yyyy h:mm a').format(appointment.dateTime)}.',
-              tz.TZDateTime.from(reminderTime, tz.local),
-              NotificationDetails(
-                android: AndroidNotificationDetails(
-                  'appointment_reminder_channel',
-                  'Appointment Reminders',
-                  channelDescription: 'Reminders for upcoming appointments',
-                  importance: Importance.high,
-                  priority: Priority.high,
-                ),
+        final doctor = doctorsBox.get(appointment.doctorId);
+        try {
+          await notificationsPlugin.zonedSchedule(
+            reminderId,
+            'Appointment Reminder',
+            'Your appointment with ${doctor?.name ?? 'Unknown'} is at ${DateFormat('MMM d, yyyy h:mm a').format(appointment.dateTime)}.',
+            tz.TZDateTime.from(reminderTime, tz.local),
+            NotificationDetails(
+              android: AndroidNotificationDetails(
+                'appointment_reminder_channel',
+                'Appointment Reminders',
+                channelDescription: 'Reminders for upcoming appointments',
+                importance: Importance.high,
+                priority: Priority.high,
               ),
-              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-            );
-            await remindersBox.put(reminderId, appointment.id);
-            debugPrint('Scheduled reminder for appointment ${appointment.id} at $reminderTime for patient $userId');
-          } catch (e) {
-            debugPrint('Error scheduling reminder for ${appointment.id}: $e');
-          }
-        } else {
-          debugPrint('Reminder already exists for appointment ${appointment.id}, reminderId: $reminderId');
+            ),
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          );
+          await remindersBox.put(reminderId, appointment.id);
+          debugPrint('Scheduled reminder for appointment ${appointment.id} at $reminderTime for patient $userId');
+        } catch (e) {
+          debugPrint('Error scheduling reminder for ${appointment.id}: $e');
         }
       } else {
         debugPrint('Appointment ${appointment.id} not eligible: status=${appointment.status}, userId=${appointment.userId}, dateTime=${appointment.dateTime}');
@@ -104,6 +120,7 @@ class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin
   @override
   void dispose() {
     _tabController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -118,6 +135,10 @@ class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final userSession = Hive.box<UserSession>('session').get('user');
+    final userId = userSession?.phone ?? 'unknown';
+    final screens = _screens(context, userId);
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -151,9 +172,9 @@ class _HomeTabsState extends State<HomeTabs> with SingleTickerProviderStateMixin
       body: _selectedIndex < 3
           ? TabBarView(
         controller: _tabController,
-        children: _screens.sublist(0, 3),
+        children: screens.sublist(0, 3),
       )
-          : _screens[_selectedIndex],
+          : screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(

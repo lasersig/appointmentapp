@@ -57,6 +57,25 @@ class _DoctorAdminScreenState extends ConsumerState<DoctorAdminScreen> {
         final doctorId = userSession?.phone ?? 'unknown';
         debugPrint('DoctorAdminScreen: doctorId = $doctorId');
 
+        // Check if user is a valid doctor
+        final doctorsBox = Hive.box<Doctor>('doctors');
+        final isDoctor = doctorsBox.values.any((doctor) => doctor.id == doctorId);
+
+        if (!isDoctor) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Doctor Admin'),
+              automaticallyImplyLeading: false,
+            ),
+            body: const Center(
+              child: Text(
+                'Unauthorized: Please log in as a doctor',
+                style: TextStyle(fontFamily: 'Inter', fontSize: 16),
+              ),
+            ),
+          );
+        }
+
         return ValueListenableBuilder(
           valueListenable: Hive.box<Appointment>('appointments').listenable(),
           builder: (context, Box<Appointment> appointmentsBox, _) {
@@ -135,9 +154,7 @@ class _DoctorAdminScreenState extends ConsumerState<DoctorAdminScreen> {
                           child: appointments.isEmpty
                               ? Center(
                             child: Text(
-                              doctorId == 'unknown'
-                                  ? 'No user logged in'
-                                  : 'No appointments found',
+                              'No appointments found',
                               style: const TextStyle(fontFamily: 'Inter', fontSize: 16),
                             ),
                           )
