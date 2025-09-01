@@ -22,7 +22,8 @@ flutter run
 
 ## Video Demo
 
-<iframe width="560" height="315" src="https://youtu.be/Bb5U6teBWFM" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+[![demo](https://img.youtube.com/vi/Bb5U6teBWFM/maxresdefault.jpg)](https://youtu.be/Bb5U6teBWFM)
+
 
 ## Flows
 
