@@ -1,5 +1,25 @@
 # Patient Booking App
 
+## Requirements
+- riverpod: for managing states
+- flutter_riverpod
+- hive: database for persistence
+- hive_flutter
+- uuid: unique identifiers
+- intl: date and number formatting
+- flutter_local_notifications: allows the app to display alerts
+- carousel_slider: for the onboarding screen
+- timezone: used to schedule notifications at a certain time (1 hour before appointment)
+
+## How To Run
+
+```git clone https://github.com/lasersig/appointmentapp.git
+flutter pub get
+flutter pub run build_runner build        # these files are already generated
+flutter run```
+
+
+
 ## Flows
 
 ### Splash Screen
