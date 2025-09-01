@@ -20,7 +20,8 @@ flutter pub run build_runner build        # these files are already generated
 flutter run
 ```
 
-
+## Video Demo
+![demo](https://youtu.be/Bb5U6teBWFM)
 
 ## Flows
 
