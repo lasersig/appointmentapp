@@ -13,10 +13,12 @@
 
 ## How To Run
 
-```git clone https://github.com/lasersig/appointmentapp.git
+```
+git clone https://github.com/lasersig/appointmentapp.git
 flutter pub get
 flutter pub run build_runner build        # these files are already generated
-flutter run```
+flutter run
+```
 
 
 
